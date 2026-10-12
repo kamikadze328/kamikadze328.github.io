@@ -1,1 +1,386 @@
-<h1>Khinkali</h1>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Битва за Хинкали!</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #a0522d; /* Цвет деревянного пола */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        #game-wrapper {
+            position: relative; /* Для позиционирования модального окна */
+            text-align: center;
+        }
+        #game-container {
+            background: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        canvas {
+            border: 3px solid #654321;
+            background-color: #fafafa;
+            cursor: pointer;
+        }
+        #controls {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        #timer, #score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        #endGameModal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none; /* Скрыто по умолчанию */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+            text-align: center;
+            z-index: 10;
+        }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.4);
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            font-size: 36px;
+        }
+        .modal-content p {
+            font-size: 20px;
+            margin-bottom: 30px;
+        }
+        #restartButton {
+            padding: 15px 30px;
+            font-size: 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+            background-color: #4CAF50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="game-container">
+            <h1>Битва за Хинкали!</h1>
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <div id="controls">
+                <span id="timer">Время: 15</span>
+                <span id="score">Хинкали: 10</span>
+            </div>
+        </div>
+
+        <div id="endGameModal">
+            <div class="modal-content">
+                <h2 id="resultTitle"></h2>
+                <p id="resultMessage"></p>
+                <button id="restartButton">Начать заново</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const endGameModal = document.getElementById('endGameModal');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultMessage = document.getElementById('resultMessage');
+        const restartButton = document.getElementById('restartButton');
+
+        const INITIAL_KHINKALI_COUNT = 10;
+        const GAME_DURATION = 15;
+        const PAW_TYPES = ['cat', 'dog', 'bear', 'rabbit', 'cow'];
+
+        let khinkali = [], paws = [], fireworks = [];
+        let fireworkInterval = null;
+        let timeLeft = GAME_DURATION;
+        let animationFrameId;
+        let gameActive = false;
+        let gameStartTime, lastPawTime = 0;
+        const GRAB_DELAY = 500;
+
+        const table = { x: canvas.width / 2, y: canvas.height / 2, radius: 220 };
+        const plate = { x: canvas.width / 2, y: canvas.height / 2, radius: 180 };
+
+        function initKhinkali() {
+            khinkali = [];
+            for (let i = 0; i < INITIAL_KHINKALI_COUNT; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 40 + Math.random() * (plate.radius - 80);
+                const x = plate.x + Math.cos(angle) * radius;
+                const y = plate.y + Math.sin(angle) * radius;
+                khinkali.push({ x, y, initialX: x, initialY: y, radius: 32, isTargeted: false });
+            }
+        }
+
+        // --- Функции отрисовки ---
+        function drawTableAndPlate() {
+            ctx.beginPath();
+            ctx.arc(table.x, table.y, table.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#8B4513';
+            ctx.fill();
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(plate.x, plate.y, plate.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ADD8E6'; // СВЕТЛО-ГОЛУБОЙ ЦВЕТ ТАРЕЛКИ
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(plate.x, plate.y, plate.radius - 10, 0, Math.PI * 2);
+            ctx.strokeStyle = '#87CEEB';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function drawDetailedKhinkali(k) {
+            ctx.save();
+            ctx.translate(k.x, k.y);
+            ctx.beginPath();
+            ctx.arc(0, 0, k.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#f5deb3';
+            ctx.fill();
+            ctx.strokeStyle = '#deb887';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, -k.radius);
+            ctx.lineTo(-7, -k.radius - 12);
+            ctx.lineTo(0, -k.radius - 7);
+            ctx.lineTo(7, -k.radius - 12);
+            ctx.closePath();
+            ctx.fillStyle = '#e4c590';
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawAllKhinkali() { khinkali.forEach(drawDetailedKhinkali); }
+
+        function drawPaw(paw) {
+            const angle = Math.atan2(paw.y - paw.startY, paw.x - paw.startX);
+            switch(paw.type) {
+                case 'bear': ctx.lineWidth = 40; ctx.strokeStyle = '#6b4226'; break;
+                case 'dog': ctx.lineWidth = 28; ctx.strokeStyle = '#1C1C1C'; break;
+                case 'cat': ctx.lineWidth = 22; ctx.strokeStyle = '#999999'; break;
+                case 'rabbit': ctx.lineWidth = 25; ctx.strokeStyle = '#E0E0E0'; break;
+                case 'cow': ctx.lineWidth = 35; ctx.strokeStyle = '#6b4226'; break;
+            }
+            ctx.beginPath();
+            ctx.moveTo(paw.startX, paw.startY);
+            ctx.lineTo(paw.x, paw.y);
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.save();
+            ctx.translate(paw.x, paw.y);
+            ctx.rotate(angle + Math.PI / 2);
+            ctx.beginPath();
+            switch(paw.type) {
+                case 'cat': // Обновленная лапа кота
+                    ctx.fillStyle = '#AAAAAA';
+                    ctx.ellipse(0, -7, 20, 22, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 4 пальца
+                    for(let i = 0; i < 4; i++){
+                        ctx.beginPath();
+                        ctx.arc(-15 + i*10, -28, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    // Розовая подушечка
+                    ctx.fillStyle = '#ffc0cb';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 2);
+                    ctx.bezierCurveTo(-18, -3, -15, -25, 0, -20);
+                    ctx.bezierCurveTo(15, -25, 18, -3, 0, 2);
+                    ctx.fill();
+                    break;
+                case 'dog': ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.ellipse(0, -10, 22, 20, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(-15, -28, 7, 0, Math.PI * 2); ctx.arc(-5, -34, 7, 0, Math.PI * 2); ctx.arc(5, -34, 7, 0, Math.PI * 2); ctx.arc(15, -28, 7, 0, Math.PI * 2); ctx.fill(); break;
+                case 'bear': ctx.fillStyle = '#5C4033'; ctx.ellipse(0, -12, 28, 30, 0, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#E5E4E2'; for(let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 10, -30); ctx.lineTo(i * 10 - 4, -42); ctx.lineTo(i * 10 + 4, -42); ctx.fill(); } break;
+                case 'rabbit': // Обновленная лапа кролика
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.ellipse(0, -10, 22, 28, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                     // 4 пальца
+                    for(let i = 0; i < 4; i++){
+                        ctx.beginPath();
+                        ctx.arc(-15 + i*10, -30, 6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    break;
+                case 'cow': ctx.fillStyle = '#333333'; ctx.beginPath(); ctx.moveTo(-20, -5); ctx.lineTo(-20, -30); ctx.arcTo(-20, -40, -5, -40, 10); ctx.lineTo(-5, -40); ctx.lineTo(-5, -5); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(20, -5); ctx.lineTo(20, -30); ctx.arcTo(20, -40, 5, -40, 10); ctx.lineTo(5, -40); ctx.lineTo(5, -5); ctx.closePath(); ctx.fill(); break;
+            }
+            ctx.restore();
+        }
+
+        function drawAllPaws() { paws.forEach(drawPaw); }
+        
+        // --- Фейерверк ---
+        function createFirework(x, y) {
+            const particleCount = 100;
+            const hue = Math.random() * 360;
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 1;
+                fireworks.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: `hsl(${hue}, 100%, ${50 + Math.random() * 30}%)`,
+                    alpha: 1,
+                    size: Math.random() * 3 + 1
+                });
+            }
+        }
+
+        function updateAndDrawFireworks() {
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                const p = fireworks[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.05; // gravity
+                p.alpha -= 0.02;
+                if (p.alpha <= 0) {
+                    fireworks.splice(i, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+        }
+
+        // --- Игровая логика ---
+        function createPaw() {
+            const availableKhinkali = khinkali.filter(k => !k.isTargeted);
+            if (availableKhinkali.length === 0) return;
+            const targetKhinkali = availableKhinkali[Math.floor(Math.random() * availableKhinkali.length)];
+            targetKhinkali.isTargeted = true;
+            const side = Math.floor(Math.random() * 4);
+            let startX, startY;
+            switch (side) {
+                case 0: startX = Math.random() * canvas.width; startY = -40; break;
+                case 1: startX = canvas.width + 40; startY = Math.random() * canvas.height; break;
+                case 2: startX = Math.random() * canvas.width; startY = canvas.height + 40; break;
+                case 3: startX = -40; startY = Math.random() * canvas.height; break;
+            }
+            paws.push({ startX, startY, x: startX, y: startY, speed: 3 + Math.random() * 2, isGrabbing: false, isRetreating: false, grabStartTime: 0, targetKhinkali, type: PAW_TYPES[Math.floor(Math.random() * PAW_TYPES.length)] });
+        }
+
+        function updateGameObjects(timestamp) {
+            khinkali.forEach(k => {
+                if (!k.isTargeted) { const dx = k.initialX - k.x, dy = k.initialY - k.y; if (Math.sqrt(dx * dx + dy * dy) > 1) { k.x += dx * 0.1; k.y += dy * 0.1; } }
+            });
+            paws.forEach((paw, index) => {
+                let target, dx, dy, dist;
+                if (paw.isRetreating || (paw.isGrabbing && paw.targetKhinkali)) { target = { x: paw.startX, y: paw.startY }; }
+                else if (paw.targetKhinkali) { target = { x: paw.targetKhinkali.x, y: paw.targetKhinkali.y }; }
+                else { paws.splice(index, 1); return; }
+                dx = target.x - paw.x; dy = target.y - paw.y; dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > paw.speed && paw.grabStartTime === 0) { paw.x += (dx / dist) * paw.speed; paw.y += (dy / dist) * paw.speed; }
+                else {
+                    if (paw.isRetreating) { paws.splice(index, 1); }
+                    else if (paw.isGrabbing) {
+                        if(paw.targetKhinkali) { paw.x += (dx / dist) * paw.speed; paw.y += (dy / dist) * paw.speed; paw.targetKhinkali.x = paw.x; paw.targetKhinkali.y = paw.y; }
+                        if(dist <= paw.speed) { const khinkaliIndex = khinkali.indexOf(paw.targetKhinkali); if (khinkaliIndex !== -1) khinkali.splice(khinkaliIndex, 1); paws.splice(index, 1); }
+                    } else {
+                        if (paw.grabStartTime === 0) { paw.grabStartTime = timestamp; paw.x = paw.targetKhinkali.x; paw.y = paw.targetKhinkali.y; }
+                        if (timestamp - paw.grabStartTime > GRAB_DELAY) { paw.isGrabbing = true; }
+                    }
+                }
+            });
+        }
+
+        function gameLoop(timestamp) {
+            animationFrameId = requestAnimationFrame(gameLoop);
+
+            if (gameActive) {
+                if (!gameStartTime) gameStartTime = timestamp;
+                const elapsedSeconds = (timestamp - gameStartTime) / 1000;
+                timeLeft = Math.max(0, GAME_DURATION - elapsedSeconds);
+                document.getElementById('timer').textContent = 'Время: ' + Math.ceil(timeLeft);
+                document.getElementById('score').textContent = 'Хинкали: ' + khinkali.length;
+                if (timestamp - lastPawTime > (800 + Math.random() * 500)) { createPaw(); lastPawTime = timestamp; }
+                updateGameObjects(timestamp);
+                if (timeLeft <= 0 || khinkali.length === 0) endGame();
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTableAndPlate();
+            drawAllKhinkali();
+            drawAllPaws();
+            updateAndDrawFireworks(); // Фейерверк рисуется всегда
+        }
+
+        function endGame() {
+            gameActive = false;
+            const remainingCount = khinkali.length;
+            if (remainingCount === 0) {
+                resultTitle.textContent = 'Катастрофа!';
+                resultMessage.textContent = 'Никаких тебе хинкалей сегодня!';
+            } else {
+                resultTitle.textContent = 'Игра окончена!';
+                resultMessage.textContent = `Твой результат: ${remainingCount} из ${INITIAL_KHINKALI_COUNT} хинкали. Молодец, иди покушай!`;
+                if(remainingCount === INITIAL_KHINKALI_COUNT){
+                    fireworkInterval = setInterval(() => { createFirework(Math.random() * canvas.width, Math.random() * canvas.height * 0.7); }, 400);
+                }
+            }
+            endGameModal.style.display = 'flex';
+        }
+        
+        canvas.addEventListener('click', function(event) {
+            if (!gameActive) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            for (let i = paws.length - 1; i >= 0; i--) {
+                const paw = paws[i]; const dx = mouseX - paw.x, dy = mouseY - paw.y;
+                if (!paw.isRetreating && Math.sqrt(dx * dx + dy * dy) < 40) {
+                    if (paw.targetKhinkali) { paw.targetKhinkali.isTargeted = false; }
+                    paw.isGrabbing = false; paw.isRetreating = true; paw.targetKhinkali = null;
+                    break;
+                }
+            }
+        });
+
+        function startGame() {
+            endGameModal.style.display = 'none';
+            if(fireworkInterval) clearInterval(fireworkInterval);
+            fireworks = [];
+            initKhinkali();
+            paws = [];
+            gameActive = true;
+            gameStartTime = null;
+            lastPawTime = 0;
+        }
+        
+        restartButton.addEventListener('click', startGame);
+        startGame();
+        gameLoop(); // Запускаем главный цикл один раз
+    </script>
+</body>
+</html>
