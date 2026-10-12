@@ -1,1 +1,663 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Защити хинкали от собак!</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5e8c9;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #table {
+            position: absolute;
+            width: 80vw;
+            height: 60vh;
+            background-color: #8b4513;
+            border-radius: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        #plate {
+            position: absolute;
+            width: 35vh;
+            height: 35vh;
+            background-color: #f0f0f0;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .hinkali {
+            width: 70px;
+            height: 50px;
+            background-color: #fff;
+            border-radius: 50% 50% 40% 40%/60% 60% 40% 40%;
+            margin: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .hinkali::before {
+            content: "";
+            position: absolute;
+            width: 60px;
+            height: 40px;
+            background-color: #fff;
+            border-radius: 50% 50% 40% 40%/60% 60% 40% 40%;
+            top: 5px;
+            left: 5px;
+            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .hinkali::after {
+            content: "";
+            position: absolute;
+            width: 50px;
+            height: 12px;
+            background-color: #fff;
+            border-radius: 6px;
+            top: -6px;
+            left: 10px;
+            box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+            transform: rotate(5deg);
+        }
+        
+        .hinkali .folds {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .hinkali .fold {
+            position: absolute;
+            background-color: rgba(0,0,0,0.05);
+            border-radius: 50%;
+        }
+        
+        .dog-head {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: transform 0.2s;
+            filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5));
+        }
+        
+        .dog-head:hover {
+            transform: scale(1.1);
+        }
+        
+        #timer {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #333;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 20;
+        }
+        
+        #score {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #333;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 20;
+        }
+        
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px 40px;
+            border-radius: 10px;
+            display: none;
+            z-index: 100;
+            text-align: center;
+        }
+        
+        #start-btn {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            padding: 15px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 100;
+        }
+        
+        #sound-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px;
+            background-color: rgba(255,255,255,0.7);
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="table"></div>
+        <div id="plate"></div>
+        <div id="timer">Время: 15</div>
+        <div id="score">Хинкалей: 12</div>
+        <div id="message"></div>
+        <button id="start-btn">Начать игру</button>
+        <div id="sound-toggle">🔊</div>
+    </div>
 
+    <!-- Аудио элементы -->
+    <audio id="background-music" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="bark-sound">
+        <source src="https://www.soundjay.com/misc/sounds/dog-bark-5.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="win-sound">
+        <source src="https://www.soundjay.com/misc/sounds/success-1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="lose-sound">
+        <source src="https://www.soundjay.com/misc/sounds/fail-trombone-01.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const table = document.getElementById('table');
+        const plate = document.getElementById('plate');
+        const timerDisplay = document.getElementById('timer');
+        const scoreDisplay = document.getElementById('score');
+        const messageDisplay = document.getElementById('message');
+        const startBtn = document.getElementById('start-btn');
+        const soundToggle = document.getElementById('sound-toggle');
+        
+        // Аудио элементы
+        const bgMusic = document.getElementById('background-music');
+        const barkSound = document.getElementById('bark-sound');
+        const winSound = document.getElementById('win-sound');
+        const loseSound = document.getElementById('lose-sound');
+        
+        // Настройка громкости
+        bgMusic.volume = 0.3; // Фоновая музыка тише
+        barkSound.volume = 0.7; // Лай громче
+        winSound.volume = 0.7;
+        loseSound.volume = 0.7;
+        
+        const TOTAL_HINKALI = 12;
+        const GAME_DURATION = 15; // секунд
+        
+        let hinkali = [];
+        let dogs = [];
+        let gameTime = GAME_DURATION;
+        let score = TOTAL_HINKALI;
+        let gameInterval;
+        let isGameRunning = false;
+        let soundEnabled = true;
+        
+        // SVG голов собак с ушами (3 разных варианта)
+        const dogsSVG = [
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                <path d="M50,20 Q70,15 80,30 Q85,50 80,70 Q70,85 50,90 Q30,85 20,70 Q15,50 20,30 Q30,15 50,20 Z" fill="#8b5a2b"/>
+                <!-- Уши -->
+                <path d="M20,25 Q15,10 25,15 Q30,25 20,25 Z" fill="#5d3a1a"/>
+                <path d="M80,25 Q85,10 75,15 Q70,25 80,25 Z" fill="#5d3a1a"/>
+                <!-- Глаза -->
+                <circle cx="40" cy="50" r="5" fill="#fff"/>
+                <circle cx="60" cy="50" r="5" fill="#fff"/>
+                <circle cx="40" cy="50" r="2" fill="#000"/>
+                <circle cx="60" cy="50" r="2" fill="#000"/>
+                <!-- Нос и рот -->
+                <circle cx="50" cy="60" r="3" fill="#000"/>
+                <path d="M50,65 Q55,70 60,68" stroke="#000" stroke-width="2" fill="none"/>
+            </svg>`,
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                <path d="M50,20 Q75,10 85,35 Q90,60 75,80 Q60,90 50,85 Q40,90 25,80 Q10,60 15,35 Q25,10 50,20 Z" fill="#5d3a1a"/>
+                <!-- Висячие уши -->
+                <path d="M25,30 Q15,20 20,40 Q25,35 25,30 Z" fill="#3d2b1f"/>
+                <path d="M75,30 Q85,20 80,40 Q75,35 75,30 Z" fill="#3d2b1f"/>
+                <!-- Глаза -->
+                <circle cx="40" cy="50" r="6" fill="#fff"/>
+                <circle cx="60" cy="50" r="6" fill="#fff"/>
+                <circle cx="40" cy="50" r="3" fill="#000"/>
+                <circle cx="60" cy="50" r="3" fill="#000"/>
+                <!-- Нос и рот -->
+                <path d="M50,65 Q55,75 60,70" stroke="#000" stroke-width="2.5" fill="none"/>
+                <circle cx="50" cy="60" r="4" fill="#000"/>
+            </svg>`,
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                <path d="M50,15 Q80,10 90,40 Q95,70 75,85 Q60,95 50,90 Q40,95 25,85 Q5,70 10,40 Q20,10 50,15 Z" fill="#6b4a2a"/>
+                <!-- Торчащие уши -->
+                <path d="M30,20 Q20,5 25,25 Q30,30 30,20 Z" fill="#4a3a2a"/>
+                <path d="M70,20 Q80,5 75,25 Q70,30 70,20 Z" fill="#4a3a2a"/>
+                <!-- Глаза -->
+                <circle cx="35" cy="50" r="7" fill="#fff"/>
+                <circle cx="65" cy="50" r="7" fill="#fff"/>
+                <circle cx="35" cy="50" r="4" fill="#000"/>
+                <circle cx="65" cy="50" r="4" fill="#000"/>
+                <!-- Нос и рот -->
+                <path d="M50,65 Q60,80 70,75" stroke="#000" stroke-width="3" fill="none"/>
+                <circle cx="50" cy="60" r="5" fill="#000"/>
+            </svg>`
+        ];
+        
+        // Управление звуком
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+            
+            if (soundEnabled) {
+                bgMusic.play().catch(e => console.log("Автовоспроизведение заблокировано"));
+            } else {
+                bgMusic.pause();
+            }
+        });
+        
+        // Создаем детализированные хинкали
+        function createHinkali() {
+            plate.innerHTML = '';
+            hinkali = [];
+            
+            // Расположение хинкалей по кругу
+            const centerX = plate.offsetWidth / 2;
+            const centerY = plate.offsetHeight / 2;
+            const radius = Math.min(plate.offsetWidth, plate.offsetHeight) * 0.35;
+            
+            for (let i = 0; i < TOTAL_HINKALI; i++) {
+                const angle = (i * 2 * Math.PI / TOTAL_HINKALI) - Math.PI/2;
+                const x = centerX + radius * Math.cos(angle) - 35;
+                const y = centerY + radius * Math.sin(angle) - 25;
+                
+                const hinkaliElement = document.createElement('div');
+                hinkaliElement.className = 'hinkali';
+                hinkaliElement.dataset.index = i;
+                hinkaliElement.style.position = 'absolute';
+                hinkaliElement.style.left = `${x}px`;
+                hinkaliElement.style.top = `${y}px`;
+                hinkaliElement.style.transform = `rotate(${angle + Math.PI/2}rad)`;
+                
+                // Добавляем складки на хинкали
+                const folds = document.createElement('div');
+                folds.className = 'folds';
+                
+                for (let j = 0; j < 5; j++) {
+                    const fold = document.createElement('div');
+                    fold.className = 'fold';
+                    fold.style.width = `${10 + j*5}px`;
+                    fold.style.height = `${5 + j*2}px`;
+                    fold.style.left = `${15 + j*7}px`;
+                    fold.style.top = `${10 + j*2}px`;
+                    folds.appendChild(fold);
+                }
+                
+                hinkaliElement.appendChild(folds);
+                plate.appendChild(hinkaliElement);
+                
+                hinkali.push({
+                    element: hinkaliElement,
+                    stolen: false,
+                    angle: angle
+                });
+            }
+        }
+        
+        // Создаем собачью голову
+        function createDog() {
+            if (!isGameRunning || score <= 0) return;
+            
+            // Выбираем случайную сторону (0-3: верх, право, низ, лево)
+            const side = Math.floor(Math.random() * 4);
+            const dogSVG = dogsSVG[Math.floor(Math.random() * dogsSVG.length)];
+            
+            const dog = document.createElement('div');
+            dog.className = 'dog-head';
+            dog.innerHTML = dogSVG;
+            
+            // Начальная позиция за пределами экрана
+            const containerWidth = gameContainer.offsetWidth;
+            const containerHeight = gameContainer.offsetHeight;
+            const plateRect = plate.getBoundingClientRect();
+            const plateCenterX = plateRect.left + plateRect.width / 2;
+            const plateCenterY = plateRect.top + plateRect.height / 2;
+            
+            let startX, startY, endX, endY;
+            
+            switch (side) {
+                case 0: // верх
+                    startX = Math.random() * containerWidth;
+                    startY = -120;
+                    endX = plateCenterX + (Math.random() - 0.5) * plateRect.width * 0.5;
+                    endY = plateCenterY - 40;
+                    break;
+                case 1: // право
+                    startX = containerWidth + 120;
+                    startY = Math.random() * containerHeight;
+                    endX = plateCenterX + 40;
+                    endY = plateCenterY + (Math.random() - 0.5) * plateRect.height * 0.5;
+                    break;
+                case 2: // низ
+                    startX = Math.random() * containerWidth;
+                    startY = containerHeight + 120;
+                    endX = plateCenterX + (Math.random() - 0.5) * plateRect.width * 0.5;
+                    endY = plateCenterY + 40;
+                    break;
+                case 3: // лево
+                    startX = -120;
+                    startY = Math.random() * containerHeight;
+                    endX = plateCenterX - 40;
+                    endY = plateCenterY + (Math.random() - 0.5) * plateRect.height * 0.5;
+                    break;
+            }
+            
+            // Поворот собаки в зависимости от направления
+            let rotation = 0;
+            if (side === 0) rotation = 180; // сверху
+            else if (side === 1) rotation = -90; // справа
+            else if (side === 3) rotation = 90; // слева
+            
+            dog.style.left = `${startX}px`;
+            dog.style.top = `${startY}px`;
+            dog.style.transform = `rotate(${rotation}deg)`;
+            
+            // Выбираем случайный хинкаль для кражи
+            const availableHinkali = hinkali.filter(h => !h.stolen);
+            if (availableHinkali.length === 0) return;
+            
+            const targetHinkali = availableHinkali[Math.floor(Math.random() * availableHinkali.length)];
+            targetHinkali.stolen = true;
+            dog.dataset.hinkaliIndex = targetHinkali.element.dataset.index;
+            
+            gameContainer.appendChild(dog);
+            dogs.push(dog);
+            
+            // Анимация движения собаки к хинкалю (замедленная)
+            const approachDuration = 1500 + Math.random() * 1000; // 1.5-2.5 секунды на подход
+            const stealDuration = 1000; // 1 секунда на кражу
+            const returnDuration = 2000 + Math.random() * 1000; // 2-3 секунды на возвращение
+            const totalDuration = approachDuration + stealDuration + returnDuration;
+            const startTime = performance.now();
+            
+            function animateDog(currentTime) {
+                if (!isGameRunning) return;
+                
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / totalDuration, 1);
+                
+                // Фаза приближения (0-50%)
+                if (progress < 0.5) {
+                    const phaseProgress = progress * 2;
+                    const x = startX + (endX - startX) * phaseProgress;
+                    const y = startY + (endY - startY) * phaseProgress;
+                    
+                    dog.style.left = `${x}px`;
+                    dog.style.top = `${y}px`;
+                    
+                    requestAnimationFrame(animateDog);
+                } 
+                // Фаза кражи (50-60%)
+                else if (progress < 0.6) {
+                    if (progress > 0.5 && progress < 0.55) {
+                        // Убираем хинкаль
+                        targetHinkali.element.style.transform = 'scale(0)';
+                    }
+                    requestAnimationFrame(animateDog);
+                }
+                // Фаза возвращения (60-100%)
+                else {
+                    const returnProgress = (progress - 0.6) / 0.4;
+                    let x, y;
+                    
+                    // Возвращаемся в исходную точку
+                    if (side === 0) { // сверху
+                        x = endX + (Math.random() - 0.5) * 50;
+                        y = endY + (startY - endY) * returnProgress;
+                    } else if (side === 1) { // справа
+                        x = endX + (startX - endX) * returnProgress;
+                        y = endY + (Math.random() - 0.5) * 50;
+                    } else if (side === 2) { // снизу
+                        x = endX + (Math.random() - 0.5) * 50;
+                        y = endY + (startY - endY) * returnProgress;
+                    } else { // слева
+                        x = endX + (startX - endX) * returnProgress;
+                        y = endY + (Math.random() - 0.5) * 50;
+                    }
+                    
+                    dog.style.left = `${x}px`;
+                    dog.style.top = `${y}px`;
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animateDog);
+                    } else {
+                        gameContainer.removeChild(dog);
+                        dogs = dogs.filter(d => d !== dog);
+                        
+                        // Уменьшаем счет, если хинкаль не был спасен
+                        if (targetHinkali.stolen) {
+                            score--;
+                            updateScore();
+                            
+                            if (score <= 0) {
+                                endGame();
+                            }
+                        }
+                    }
+                }
+            }
+            
+            requestAnimationFrame(animateDog);
+            
+            // Обработчик клика на собаку
+            dog.addEventListener('click', () => {
+                if (soundEnabled) {
+                    barkSound.currentTime = 0;
+                    barkSound.play().catch(e => console.log("Не удалось воспроизвести лай"));
+                    
+                    // Воспроизводим второй раз для эффекта "ГАВ-ГАВ"
+                    setTimeout(() => {
+                        if (soundEnabled) {
+                            barkSound.currentTime = 0;
+                            barkSound.play().catch(e => console.log("Не удалось воспроизвести лай"));
+                        }
+                    }, 200);
+                }
+                
+                targetHinkali.stolen = false;
+                targetHinkali.element.style.transform = `scale(1) rotate(${targetHinkali.angle + Math.PI/2}rad)`;
+                
+                // Анимация быстрого возвращения собаки
+                const currentX = parseFloat(dog.style.left);
+                const currentY = parseFloat(dog.style.top);
+                const returnDuration = 500; // 0.5 секунды
+                const returnStartTime = performance.now();
+                
+                function animateReturn(currentTime) {
+                    const elapsed = currentTime - returnStartTime;
+                    const progress = Math.min(elapsed / returnDuration, 1);
+                    
+                    let x, y;
+                    if (side === 0) { // сверху
+                        x = currentX;
+                        y = currentY - 400 * progress;
+                    } else if (side === 1) { // справа
+                        x = currentX + 400 * progress;
+                        y = currentY;
+                    } else if (side === 2) { // снизу
+                        x = currentX;
+                        y = currentY + 400 * progress;
+                    } else { // слева
+                        x = currentX - 400 * progress;
+                        y = currentY;
+                    }
+                    
+                    dog.style.left = `${x}px`;
+                    dog.style.top = `${y}px`;
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animateReturn);
+                    } else {
+                        gameContainer.removeChild(dog);
+                        dogs = dogs.filter(d => d !== dog);
+                    }
+                }
+                
+                requestAnimationFrame(animateReturn);
+            });
+        }
+        
+        function updateTimer() {
+            timerDisplay.textContent = `Время: ${gameTime}`;
+        }
+        
+        function updateScore() {
+            scoreDisplay.textContent = `Хинкалей: ${score}`;
+        }
+        
+        function startGame() {
+            isGameRunning = true;
+            gameTime = GAME_DURATION;
+            score = TOTAL_HINKALI;
+            
+            createHinkali();
+            updateTimer();
+            updateScore();
+            
+            startBtn.style.display = 'none';
+            messageDisplay.style.display = 'none';
+            
+            // Очищаем всех собак
+            dogs.forEach(dog => gameContainer.removeChild(dog));
+            dogs = [];
+            
+            // Включаем фоновую музыку
+            if (soundEnabled) {
+                bgMusic.currentTime = 0;
+                bgMusic.play().catch(e => console.log("Автовоспроизведение заблокировано"));
+            }
+            
+            // Запускаем таймер игры
+            gameInterval = setInterval(() => {
+                gameTime--;
+                updateTimer();
+                
+                if (gameTime <= 0) {
+                    endGame();
+                }
+            }, 1000);
+            
+            // Запускаем появление собак (реже)
+            const dogInterval = setInterval(() => {
+                if (!isGameRunning) {
+                    clearInterval(dogInterval);
+                    return;
+                }
+                
+                createDog();
+                
+                // Увеличиваем частоту появления собак со временем, но медленнее
+                const frequency = Math.max(800, 2500 - (GAME_DURATION - gameTime) * 150);
+                if (isGameRunning) {
+                    setTimeout(createDog, frequency / 2);
+                }
+            }, 1200);
+        }
+        
+        function endGame() {
+            isGameRunning = false;
+            clearInterval(gameInterval);
+            
+            // Останавливаем фоновую музыку
+            bgMusic.pause();
+            
+            if (soundEnabled) {
+                if (score >= TOTAL_HINKALI * 0.5) {
+                    // Победа - играем победную музыку
+                    winSound.currentTime = 0;
+                    winSound.play();
+                } else {
+                    // Поражение
+                    loseSound.currentTime = 0;
+                    loseSound.play();
+                }
+            }
+            
+            if (score === TOTAL_HINKALI) {
+                messageDisplay.textContent = 'Идеально! Все хинкали в безопасности!';
+            } else if (score >= TOTAL_HINKALI * 0.75) {
+                messageDisplay.textContent = 'Отлично! Почти все хинкали спасены!';
+            } else if (score >= TOTAL_HINKALI * 0.5) {
+                messageDisplay.textContent = 'Неплохо, но можно лучше!';
+            } else if (score > 0) {
+                messageDisplay.textContent = 'Плохо! Большинство хинкалей украдено!';
+            } else {
+                messageDisplay.textContent = 'Катастрофа! Все хинкали пропали!';
+            }
+            
+            messageDisplay.style.display = 'block';
+            startBtn.style.display = 'block';
+            startBtn.textContent = 'Играть снова';
+        }
+        
+        startBtn.addEventListener('click', startGame);
+        
+        // Инициализация
+        createHinkali();
+        updateScore();
+    </script>
+</body>
+</html>
